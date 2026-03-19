@@ -47,6 +47,12 @@
   gap: 12px;
 }
 
+.audio-track__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .audio-track__title-group {
   display: flex;
   align-items: center;
@@ -83,6 +89,79 @@
   font-weight: 600;
   color: #111827;
   transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.audio-track__seek-btn {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.audio-track__seek-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14);
+  transform: translateY(-0.5px);
+}
+
+.audio-track__seek-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+}
+
+.audio-track__mute-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: #111827;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f9fafb;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.audio-track__mute-btn:hover:not(:disabled) {
+  background: #020617;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+  transform: translateY(-0.5px);
+}
+
+.audio-track__mute-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+}
+
+.audio-track__record-btn {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(102, 16, 242, 0.12);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: #4c1d95;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.audio-track__record-btn:hover:not(:disabled) {
+  background: rgba(102, 16, 242, 0.16);
+  box-shadow: 0 1px 4px rgba(102, 16, 242, 0.18);
+  transform: translateY(-0.5px);
+}
+
+.audio-track__record-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
 }
 
 .audio-track__replay-btn:hover:not(:disabled) {
@@ -129,6 +208,18 @@
   padding: 8px 10px;
   border-radius: 8px;
   background: #f3f4f6;
+}
+
+.audio-track__record-btn.is-recording {
+  background-color: #ff4d4d;
+  color: white;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
 }
 
 @media (max-width: 720px) {

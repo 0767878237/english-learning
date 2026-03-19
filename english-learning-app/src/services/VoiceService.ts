@@ -57,12 +57,13 @@ export class VoiceService {
       };
 
       recorder.start();
-      // Thực tế nên điều khiển start/stop từ UI; ở đây placeholder sẽ auto stop sau 5 giây.
+      // Giới hạn thời lượng tối đa 300s (5 phút) nếu UI không stop sớm hơn.
+      const MAX_DURATION_MS = 300_000;
       setTimeout(() => {
         if (recorder.state === 'recording') {
           recorder.stop();
         }
-      }, 5000);
+      }, MAX_DURATION_MS);
     });
   }
 
@@ -70,7 +71,6 @@ export class VoiceService {
     return new Promise((resolve, reject) => {
       const utterance = new SpeechSynthesisUtterance(text);
       const synth = window.speechSynthesis;
-      const mediaRecorder = new MediaRecorder(new MediaStream());
       // Simplified: use synthesis without recording
       // For full implementation, need to capture audio
       synth.speak(utterance);
