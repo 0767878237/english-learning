@@ -26,6 +26,46 @@ export class VoiceService {
     });
   }
 
+  /**
+   * Ghi âm microphone và trả về Blob audio thô để phát lại/tua.
+   * Đây là API nhẹ để sau này nối vào User Audio panel.
+   */
+  async recordVoiceBlob(): Promise<Blob> {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('Media devices not supported');
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    return new Promise<Blob>((resolve, reject) => {
+      const recorder = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+
+      recorder.onerror = (e: Event) => {
+        stream.getTracks().forEach((t) => t.stop());
+        reject(new Error('MediaRecorder error'));
+      };
+
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        resolve(new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
+      };
+
+      recorder.start();
+      // Thực tế nên điều khiển start/stop từ UI; ở đây placeholder sẽ auto stop sau 5 giây.
+      setTimeout(() => {
+        if (recorder.state === 'recording') {
+          recorder.stop();
+        }
+      }, 5000);
+    });
+  }
+
   generateAIVoice(text: string): Promise<Blob> {
     return new Promise((resolve, reject) => {
       const utterance = new SpeechSynthesisUtterance(text);
