@@ -8,6 +8,7 @@ export interface ChatMessage {
   id: number;
   text: string;
   timestamp: Date;
+  speaker: 'ai' | 'user';
 }
 
 export type AudioTrackKind = 'ai' | 'user';

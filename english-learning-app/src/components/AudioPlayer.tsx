@@ -2,6 +2,8 @@ import React from 'react';
 import './AudioPlayer.css';
 import type { AudioTrackKind } from '../types';
 
+const MAX_AUDIO_SECONDS = 300;
+
 type TrackProps = {
   kind: AudioTrackKind;
   title: string;
@@ -11,6 +13,14 @@ type TrackProps = {
   recordingTimer?: number;
   disabledReason?: string;
   headerActions?: React.ReactNode;
+};
+
+const formatTime = (v: number) => {
+  const m = Math.floor(v / 60);
+  const s = Math.floor(v % 60)
+    .toString()
+    .padStart(2, '0');
+  return `${m}:${s}`;
 };
 
 const AudioTrackPanel: React.FC<TrackProps> = ({
@@ -29,7 +39,6 @@ const AudioTrackPanel: React.FC<TrackProps> = ({
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [isMuted, setIsMuted] = React.useState(false);
 
-  // Reset khi đổi track hoặc ghi âm mới
   React.useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
@@ -42,60 +51,58 @@ const AudioTrackPanel: React.FC<TrackProps> = ({
 
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
-      setDuration(Math.min(audioRef.current.duration || 0, 300));
+      setDuration(Math.min(audioRef.current.duration || 0, MAX_AUDIO_SECONDS));
     }
   };
 
   const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      const time = audioRef.current.currentTime;
-      if (time >= 300) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      }
-      setCurrentTime(Math.min(time, 300));
+    if (!audioRef.current) return;
+    const time = audioRef.current.currentTime;
+    if (time >= MAX_AUDIO_SECONDS) {
+      audioRef.current.pause();
+      setIsPlaying(false);
     }
+    setCurrentTime(Math.min(time, MAX_AUDIO_SECONDS));
   };
 
-  // Các hàm điều khiển Player
   const togglePlayPause = () => {
     if (!audioRef.current || !src) return;
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play().catch(console.error);
+      void audioRef.current.play();
     }
   };
 
   const seekBy = (delta: number) => {
-    if (audioRef.current) {
-      const target = Math.min(Math.max(audioRef.current.currentTime + delta, 0), duration);
-      audioRef.current.currentTime = target;
-      setCurrentTime(target);
-    }
+    if (!audioRef.current) return;
+    const target = Math.min(
+      Math.max(audioRef.current.currentTime + delta, 0),
+      Math.min(duration, MAX_AUDIO_SECONDS),
+    );
+    audioRef.current.currentTime = target;
+    setCurrentTime(target);
   };
 
   const toggleMute = () => {
-    if (audioRef.current) {
-      const newMuteState = !isMuted;
-      audioRef.current.muted = newMuteState;
-      setIsMuted(newMuteState);
-    }
+    if (!audioRef.current) return;
+    const next = !isMuted;
+    audioRef.current.muted = next;
+    setIsMuted(next);
   };
 
   const handleReplay = () => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(console.error);
-    }
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = 0;
+    void audioRef.current.play();
   };
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = Number(e.target.value);
-    if (audioRef.current) {
-      audioRef.current.currentTime = raw;
-      setCurrentTime(raw);
-    }
+    const target = Math.min(Math.max(raw, 0), Math.min(duration, MAX_AUDIO_SECONDS));
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = target;
+    setCurrentTime(target);
   };
 
   const hasSource = Boolean(src) && !isRecording;
@@ -107,49 +114,42 @@ const AudioTrackPanel: React.FC<TrackProps> = ({
           <div className="audio-track__badge">{accent === 'ai' ? 'AI' : 'User'}</div>
           <h3 className="audio-track__title">{title}</h3>
         </div>
-        
+
         <div className="audio-track__actions">
           {headerActions}
-          
-          {/* Cụm nút điều khiển nghe lại */}
-          <button type="button" className="audio-track__seek-btn" onClick={() => seekBy(-5)} disabled={!hasSource}>-5s</button>
-          
-          <button 
-            type="button" 
-            className="audio-track__mute-btn" 
-            onClick={togglePlayPause} 
-            disabled={!hasSource}
-            style={{ minWidth: '85px' }}
-          >
+          <button type="button" className="audio-track__seek-btn" onClick={() => seekBy(-5)} disabled={!hasSource}>
+            -5s
+          </button>
+          <button type="button" className="audio-track__mute-btn" onClick={togglePlayPause} disabled={!hasSource}>
             {isPlaying ? 'Tạm dừng' : 'Nghe lại'}
           </button>
-
-          <button type="button" className="audio-track__seek-btn" onClick={() => seekBy(5)} disabled={!hasSource}>+5s</button>
-          
-          <button 
-            type="button" 
-            className="audio-track__mute-btn" 
-            onClick={toggleMute} 
+          <button type="button" className="audio-track__seek-btn" onClick={() => seekBy(5)} disabled={!hasSource}>
+            +5s
+          </button>
+          <button
+            type="button"
+            className={`audio-track__mute-btn ${isMuted ? 'is-muted' : ''}`}
+            onClick={toggleMute}
             disabled={!hasSource}
-            style={{ background: isMuted ? '#ef4444' : '#111827' }}
           >
             {isMuted ? 'Loa: Tắt' : 'Loa: Bật'}
           </button>
-
-          <button type="button" className="audio-track__replay-btn" onClick={handleReplay} disabled={!hasSource}>↺</button>
+          <button type="button" className="audio-track__replay-btn" onClick={handleReplay} disabled={!hasSource}>
+            ↺
+          </button>
         </div>
       </div>
 
       <div className="audio-track__body">
         {isRecording ? (
-          <div className="audio-track__empty" style={{ color: '#ef4444', fontWeight: '700', border: '1px solid #fee2e2' }}>
+          <div className="audio-track__empty audio-track__empty--recording">
             🔴 ĐANG GHI: {formatTime(recordingTimer)} / 5:00
           </div>
         ) : hasSource ? (
           <>
-            <audio 
-              ref={audioRef} 
-              onLoadedMetadata={handleLoadedMetadata} 
+            <audio
+              ref={audioRef}
+              onLoadedMetadata={handleLoadedMetadata}
               onTimeUpdate={handleTimeUpdate}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
@@ -161,7 +161,14 @@ const AudioTrackPanel: React.FC<TrackProps> = ({
               <span className="audio-track__time">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
-              <input type="range" min={0} max={duration || 0} step={0.1} value={currentTime} onChange={handleSliderChange} />
+              <input
+                type="range"
+                min={0}
+                max={duration || 0}
+                step={0.1}
+                value={currentTime}
+                onChange={handleSliderChange}
+              />
             </div>
           </>
         ) : (
@@ -172,12 +179,6 @@ const AudioTrackPanel: React.FC<TrackProps> = ({
   );
 };
 
-const formatTime = (v: number) => {
-  const m = Math.floor(v / 60);
-  const s = Math.floor(v % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
-};
-
 const AudioPlayer: React.FC = () => {
   const [userAudios, setUserAudios] = React.useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = React.useState<number>(-1);
@@ -185,26 +186,44 @@ const AudioPlayer: React.FC = () => {
   const [isPausedRecording, setIsPausedRecording] = React.useState(false);
   const [recordingTimer, setRecordingTimer] = React.useState(0);
   const [isHistoryOpen, setIsHistoryOpen] = React.useState(false);
-  
-  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
-  const recordChunksRef = React.useRef<BlobPart[]>([]);
 
-  // Giới hạn 300s tự ngưng khi ghi
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = React.useRef<MediaStream | null>(null);
+  const recordChunksRef = React.useRef<BlobPart[]>([]);
+  const userAudiosRef = React.useRef<string[]>([]);
+
   React.useEffect(() => {
-    let interval: number;
+    userAudiosRef.current = userAudios;
+  }, [userAudios]);
+
+  React.useEffect(() => {
+    let interval: number | undefined;
     if (isRecording && !isPausedRecording) {
       interval = window.setInterval(() => {
         setRecordingTimer((prev) => {
-          if (prev >= 299) {
+          if (prev >= MAX_AUDIO_SECONDS - 1) {
             stopRecording();
-            return 300;
+            return MAX_AUDIO_SECONDS;
           }
           return prev + 1;
         });
       }, 1000);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval !== undefined) window.clearInterval(interval);
+    };
   }, [isRecording, isPausedRecording]);
+
+  React.useEffect(() => {
+    return () => {
+      userAudiosRef.current.forEach((url) => URL.revokeObjectURL(url));
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== 'inactive') {
+        recorder.stop();
+      }
+    };
+  }, []);
 
   const startRecording = async () => {
     setRecordingTimer(0);
@@ -212,24 +231,43 @@ const AudioPlayer: React.FC = () => {
     setIsPausedRecording(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
       const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
       recordChunksRef.current = [];
-      recorder.ondataavailable = (e) => e.data.size > 0 && recordChunksRef.current.push(e.data);
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          recordChunksRef.current.push(e.data);
+        }
+      };
+
       recorder.onstop = () => {
         const url = URL.createObjectURL(new Blob(recordChunksRef.current, { type: 'audio/webm' }));
-        setUserAudios(prev => [...prev, url]);
-        setCurrentIndex(userAudios.length);
+        setUserAudios((prev) => {
+          const next = [...prev, url];
+          setCurrentIndex(next.length - 1);
+          return next;
+        });
         setIsRecording(false);
-        stream.getTracks().forEach(t => t.stop());
+        setIsPausedRecording(false);
+        mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
       };
+
       recorder.start();
-    } catch { setIsRecording(false); }
+    } catch {
+      setIsRecording(false);
+      setIsPausedRecording(false);
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current?.state !== 'inactive') {
-      mediaRecorderRef.current?.stop();
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop();
     }
   };
 
@@ -249,31 +287,42 @@ const AudioPlayer: React.FC = () => {
     URL.revokeObjectURL(userAudios[idx]);
     const nextList = userAudios.filter((_, i) => i !== idx);
     setUserAudios(nextList);
-    if (currentIndex >= nextList.length) setCurrentIndex(nextList.length - 1);
+    if (currentIndex >= nextList.length) {
+      setCurrentIndex(nextList.length - 1);
+    }
   };
 
   return (
     <div className="audio-player">
       <h2 className="audio-player__heading">Audio giao tiếp</h2>
       <div className="audio-player__grid">
-        <AudioTrackPanel kind="ai" title="AI Phản hồi" accent="ai" src="sample.mp3" />
+        <AudioTrackPanel
+          kind="ai"
+          title="AI Phản hồi"
+          accent="ai"
+          src={undefined}
+          disabledReason="Chưa có audio từ AI model."
+        />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="audio-player__user-stack">
           <AudioTrackPanel
             kind="user"
-            title={currentIndex !== -1 ? `Bản ghi #${currentIndex + 1}` : "User Audio"}
+            title={currentIndex !== -1 ? `Bản ghi #${currentIndex + 1}` : 'User Audio'}
             accent="user"
             src={userAudios[currentIndex]}
             isRecording={isRecording}
             recordingTimer={recordingTimer}
             headerActions={
-              <div style={{ display: 'flex', gap: '4px' }}>
+              <div className="audio-track__record-actions">
                 {isRecording && (
-                  <button className="audio-track__seek-btn" onClick={togglePauseRecording} style={{ borderColor: '#6610f2' }}>
+                  <button
+                    className="audio-track__seek-btn audio-track__seek-btn--recording"
+                    onClick={togglePauseRecording}
+                  >
                     {isPausedRecording ? 'Tiếp tục ghi' : 'Tạm dừng ghi'}
                   </button>
                 )}
-                <button 
+                <button
                   className={`audio-track__record-btn ${isRecording ? 'is-recording' : ''}`}
                   onClick={isRecording ? stopRecording : startRecording}
                 >
@@ -284,28 +333,28 @@ const AudioPlayer: React.FC = () => {
           />
 
           {userAudios.length > 0 && (
-            <div className="audio-track" style={{ background: '#fff' }}>
-              <div className="audio-track__header" style={{ cursor: 'pointer' }} onClick={() => setIsHistoryOpen(!isHistoryOpen)}>
-                <div className="audio-track__title" style={{ fontSize: '11px', color: '#6b7280' }}>
+            <div className="audio-track audio-track--history">
+              <div
+                className="audio-track__header audio-track__header--clickable"
+                onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+              >
+                <div className="audio-track__title audio-track__title--history">
                   DANH SÁCH ({userAudios.length}) {isHistoryOpen ? '▲' : '▼'}
                 </div>
               </div>
               {isHistoryOpen && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px', maxHeight: '160px', overflowY: 'auto' }}>
+                <div className="audio-track__history-list">
                   {userAudios.map((_, idx) => (
-                    <div key={idx} style={{ display: 'flex', gap: '8px' }}>
+                    <div key={idx} className="audio-track__history-row">
                       <button
-                        className="audio-track__seek-btn"
-                        style={{
-                          flex: 1, textAlign: 'left', padding: '8px', fontSize: '12px',
-                          borderColor: currentIndex === idx ? '#6610f2' : '#e5e7eb',
-                          background: currentIndex === idx ? 'rgba(102, 16, 242, 0.05)' : '#fff',
-                        }}
+                        className={`audio-track__seek-btn ${currentIndex === idx ? 'audio-track__seek-btn--active' : ''}`}
                         onClick={() => setCurrentIndex(idx)}
                       >
                         Bản ghi {idx + 1}
                       </button>
-                      <button className="audio-track__seek-btn" style={{ color: '#ef4444', borderColor: '#fee2e2' }} onClick={(e) => deleteAudio(e, idx)}>Xóa</button>
+                      <button className="audio-track__seek-btn audio-track__seek-btn--danger" onClick={(e) => deleteAudio(e, idx)}>
+                        Xóa
+                      </button>
                     </div>
                   ))}
                 </div>
