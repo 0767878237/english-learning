@@ -36,3 +36,24 @@ export interface ClassLevel {
   level: VstepLevel;
   progress: number;
 }
+
+// Auth Types
+export interface User {
+  id: string;
+  username: string;
+  email?: string;
+  createdAt: Date;
+}
+
+export interface PasswordValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isLoggedIn: boolean;
+  isLoading: boolean;
+  error?: string;
+}

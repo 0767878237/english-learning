@@ -2,6 +2,7 @@ import React from 'react';
 import './TaskBar.css';
 import { VSTEP_LEVELS } from '../types';
 import type { VstepLevel } from '../types';
+import { useAuth } from '../hooks/useAuth';
 
 type TaskBarProps = {
   selectedLevel: VstepLevel;
@@ -9,6 +10,7 @@ type TaskBarProps = {
 };
 
 const TaskBar: React.FC<TaskBarProps> = ({ selectedLevel, onSelectLevel }) => {
+  const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement | null>(null);
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -80,8 +82,22 @@ const TaskBar: React.FC<TaskBarProps> = ({ selectedLevel, onSelectLevel }) => {
         </div>
       </div>
       <div className="buttons">
-        <button className="btn login-btn">Đăng nhập</button>
-        <button className="btn register-btn">Đăng ký</button>
+        {user ? (
+          <div className="user-section">
+            <span className="username">👤 {user.username}</span>
+            <button 
+              className="btn logout-btn"
+              onClick={logout}
+            >
+              Đăng xuất
+            </button>
+          </div>
+        ) : (
+          <>
+            <button className="btn login-btn">Đăng nhập</button>
+            <button className="btn register-btn">Đăng ký</button>
+          </>
+        )}
       </div>
     </div>
   );
