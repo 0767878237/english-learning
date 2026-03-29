@@ -5,8 +5,9 @@ import { AuthService } from '../services/AuthService';
 
 interface AuthContextType extends AuthState {
   login: (username: string, password: string) => Promise<void>;
-  signup: (username: string, password: string) => Promise<void>;
+  signup: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  clearSuccessMessage: () => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,6 +21,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | undefined>();
+  const [successMessage, setSuccessMessage] = useState<string | undefined>();
 
   // Initialize auth from localStorage on mount
   useEffect(() => {
@@ -58,14 +60,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signup = async (username: string, password: string) => {
+  const signup = async (username: string, email: string, password: string) => {
     setIsLoading(true);
     setError(undefined);
+    setSuccessMessage(undefined);
     try {
-      const { token: newToken, user: newUser } = await AuthService.signup(username, password);
+      const { token: newToken, user: newUser, message } = await AuthService.signup(username, email, password);
       AuthService.storeToken(newToken);
       setToken(newToken);
       setUser(newUser);
+      if (message) {
+        setSuccessMessage(message);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Đăng ký thất bại';
       setError(message);
@@ -80,6 +86,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setToken(null);
     setUser(null);
     setError(undefined);
+    setSuccessMessage(undefined);
+  };
+
+  const clearSuccessMessage = () => {
+    setSuccessMessage(undefined);
   };
 
   const value: AuthContextType = {
@@ -88,9 +99,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isLoggedIn: !!token && !!user,
     isLoading,
     error,
+    successMessage,
     login,
     signup,
     logout,
+    clearSuccessMessage,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

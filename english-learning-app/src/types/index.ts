@@ -56,4 +56,5 @@ export interface AuthState {
   isLoggedIn: boolean;
   isLoading: boolean;
   error?: string;
+  successMessage?: string;
 }

@@ -1,5 +1,5 @@
 // components/SignupForm.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { AuthService } from '../services/AuthService';
 import type { PasswordValidationResult } from '../types';
@@ -10,10 +10,12 @@ interface SignupFormProps {
 
 const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<{
     username?: string;
+    email?: string;
     password?: string[];
     confirmPassword?: string;
     submit?: string;
@@ -23,11 +25,22 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
     isValid: false,
     errors: [],
   });
-  const { signup } = useAuth();
+  const { signup, successMessage, clearSuccessMessage } = useAuth();
+
+  useEffect(() => {
+    return () => {
+      clearSuccessMessage();
+    };
+  }, [clearSuccessMessage]);
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUsername(e.target.value);
     setErrors(prev => ({ ...prev, username: undefined, submit: undefined }));
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    setErrors(prev => ({ ...prev, email: undefined, submit: undefined }));
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,6 +95,24 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
       return;
     }
 
+    // Validate email
+    if (!email.trim()) {
+      setErrors(prev => ({
+        ...prev,
+        email: 'Vui lòng nhập email',
+      }));
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setErrors(prev => ({
+        ...prev,
+        email: 'Email không hợp lệ',
+      }));
+      return;
+    }
+
     // Validate password
     if (!password) {
       setErrors(prev => ({
@@ -118,7 +149,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
 
     setIsLoading(true);
     try {
-      await signup(username, password);
+      await signup(username, email, password);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Đăng ký thất bại';
       setErrors(prev => ({
@@ -132,12 +163,19 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
 
   const isFormValid =
     username.trim().length > 0 &&
+    email.trim().length > 0 &&
     passwordValidation.isValid &&
     confirmPassword &&
     confirmPassword === password;
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
+    <>
+      {successMessage && (
+        <div className="signup-success-message">
+          {successMessage}
+        </div>
+      )}
+      <form className="auth-form" onSubmit={handleSubmit}>
       <div className="form-group">
         <label htmlFor="signup-username" className="form-label">
           Tên người dùng
@@ -153,6 +191,23 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
           autoComplete="username"
         />
         {errors.username && <p className="error-message">{errors.username}</p>}
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="signup-email" className="form-label">
+          Email
+        </label>
+        <input
+          id="signup-email"
+          type="email"
+          className={`form-input ${errors.email ? 'input-error' : ''}`}
+          placeholder="Nhập email"
+          value={email}
+          onChange={handleEmailChange}
+          disabled={isLoading}
+          autoComplete="email"
+        />
+        {errors.email && <p className="error-message">{errors.email}</p>}
       </div>
 
       <div className="form-group">
@@ -247,6 +302,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
         </p>
       </div>
     </form>
+    </>
   );
 };
 

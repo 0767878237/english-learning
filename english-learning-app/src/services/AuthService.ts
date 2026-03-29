@@ -62,42 +62,45 @@ export class AuthService {
   }
 
   /**
-   * Simulate login - in real implementation, call backend API
+   * Login - call backend API
    */
   static async login(username: string, password: string): Promise<{
     token: string;
     user: User;
   }> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    const response = await fetch('http://localhost:8000/api/login/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username, password }),
+    });
 
-    // Mock validation
-    if (username === 'demo' && password === 'Demo@123') {
-      const user: User = {
-        id: '1',
-        username: 'demo',
-        createdAt: new Date(),
-      };
-
-      const token = btoa(JSON.stringify({ userId: user.id, username: user.username }));
-
-      return { token, user };
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.non_field_errors?.[0] || 'Đăng nhập thất bại');
     }
 
-    throw new Error('Tên người dùng hoặc mật khẩu không chính xác');
+    const data = await response.json();
+    const user: User = {
+      id: data.user_id.toString(),
+      username,
+      email: data.email,
+      createdAt: new Date(), // Backend doesn't return this, can be updated later
+    };
+
+    return { token: data.token, user };
   }
 
   /**
-   * Simulate signup - in real implementation, call backend API
+   * Signup - call backend API
    */
-  static async signup(username: string, password: string): Promise<{
+  static async signup(username: string, email: string, password: string): Promise<{
     token: string;
     user: User;
+    message?: string;
   }> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Validate inputs
+    // Validate inputs locally first
     const usernameValidation = this.validateUsername(username);
     if (!usernameValidation.isValid) {
       throw new Error(usernameValidation.error);
@@ -108,22 +111,42 @@ export class AuthService {
       throw new Error(passwordValidation.errors.join('; '));
     }
 
-    // Check if username exists (mock)
-    const existingUsers = ['admin', 'user', 'test'];
-    if (existingUsers.includes(username.toLowerCase())) {
-      throw new Error('Tên người dùng đã tồn tại');
+    const response = await fetch('http://localhost:8000/api/register/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username, email, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      // Handle specific errors
+      if (error.username) {
+        throw new Error(`Tên người dùng: ${error.username[0]}`);
+      }
+      if (error.email) {
+        throw new Error(`Email: ${error.email[0]}`);
+      }
+      throw new Error('Đăng ký thất bại');
     }
 
-    // Create user
+    const data = await response.json();
     const user: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      username,
+      id: data.user.id.toString(),
+      username: data.user.username,
+      email: data.user.email,
       createdAt: new Date(),
     };
 
-    const token = btoa(JSON.stringify({ userId: user.id, username: user.username }));
+    // After registration, login to get token
+    const loginResult = await this.login(username, password);
 
-    return { token, user };
+    return {
+      token: loginResult.token,
+      user: loginResult.user,
+      message: data.message,
+    };
   }
 
   /**
