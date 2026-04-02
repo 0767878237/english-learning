@@ -1,7 +1,6 @@
 // components/LoginForm.tsx
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { AuthService } from '../services/AuthService';
 
 interface LoginFormProps {
   onSwitchToSignup: () => void;

@@ -1,6 +1,8 @@
 // AuthService.ts
 import type { User, PasswordValidationResult } from '../types';
 
+const API_BASE = 'http://localhost:8000/api';
+
 export class AuthService {
   /**
    * Validate password according to requirements:
@@ -12,7 +14,7 @@ export class AuthService {
   static validatePassword(password: string): PasswordValidationResult {
     const errors: string[] = [];
     const hasUppercase = /[A-Z]/.test(password);
-    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
     const hasNumber = /[0-9]/.test(password);
     const hasMinLength = password.length >= 8;
 
@@ -62,73 +64,21 @@ export class AuthService {
   }
 
   /**
-   * Login - call backend API
+   * Login - call backend BFF API and save access token in state only
    */
-  static async login(username: string, password: string): Promise<{
-    token: string;
-    user: User;
-  }> {
-    const response = await fetch('http://localhost:8000/api/login/', {
+  static async login(username: string, password: string): Promise<{ token: string; user: User }> {
+    const response = await fetch(`${API_BASE}/login/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify({ username, password }),
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.non_field_errors?.[0] || 'Đăng nhập thất bại');
-    }
-
-    const data = await response.json();
-    const user: User = {
-      id: data.user_id.toString(),
-      username,
-      email: data.email,
-      createdAt: new Date(), // Backend doesn't return this, can be updated later
-    };
-
-    return { token: data.token, user };
-  }
-
-  /**
-   * Signup - call backend API
-   */
-  static async signup(username: string, email: string, password: string): Promise<{
-    token: string;
-    user: User;
-    message?: string;
-  }> {
-    // Validate inputs locally first
-    const usernameValidation = this.validateUsername(username);
-    if (!usernameValidation.isValid) {
-      throw new Error(usernameValidation.error);
-    }
-
-    const passwordValidation = this.validatePassword(password);
-    if (!passwordValidation.isValid) {
-      throw new Error(passwordValidation.errors.join('; '));
-    }
-
-    const response = await fetch('http://localhost:8000/api/register/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username, email, password }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      // Handle specific errors
-      if (error.username) {
-        throw new Error(`Tên người dùng: ${error.username[0]}`);
-      }
-      if (error.email) {
-        throw new Error(`Email: ${error.email[0]}`);
-      }
-      throw new Error('Đăng ký thất bại');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || 'Đăng nhập thất bại');
     }
 
     const data = await response.json();
@@ -139,58 +89,137 @@ export class AuthService {
       createdAt: new Date(),
     };
 
-    // After registration, login to get token
-    const loginResult = await this.login(username, password);
+    return { token: data.access_token, user };
+  }
 
+  /**
+   * Signup - create account and receive tokens from backend
+   */
+  static async signup(username: string, email: string, password: string): Promise<{ token: string; user: User; message?: string }> {
+    const usernameValidation = this.validateUsername(username);
+    if (!usernameValidation.isValid) {
+      throw new Error(usernameValidation.error);
+    }
+
+    const passwordValidation = this.validatePassword(password);
+    if (!passwordValidation.isValid) {
+      throw new Error(passwordValidation.errors.join('; '));
+    }
+
+    const response = await fetch(`${API_BASE}/register/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ username, email, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      if (error.username) {
+        throw new Error(`Tên người dùng: ${error.username[0]}`);
+      }
+      if (error.email) {
+        throw new Error(`Email: ${error.email[0]}`);
+      }
+      throw new Error(error.detail || 'Đăng ký thất bại');
+    }
+
+    const data = await response.json();
+    const user: User = {
+      id: data.user.id.toString(),
+      username: data.user.username,
+      email: data.user.email,
+      createdAt: new Date(),
+    };
+
+    return { token: data.access_token, user, message: data.message };
+  }
+
+  static async refreshAccessToken(): Promise<string> {
+    const response = await fetch(`${API_BASE}/refresh/`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('Không thể làm mới access token');
+    }
+    const data = await response.json();
+    return data.access_token;
+  }
+
+  static async logout(): Promise<void> {
+    await fetch(`${API_BASE}/logout/`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+  }
+
+  static async fetchCurrentUser(accessToken?: string): Promise<User | null> {
+    const defaultHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (accessToken) {
+      defaultHeaders['Authorization'] = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(`${API_BASE}/me/`, {
+      method: 'GET',
+      headers: defaultHeaders,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
     return {
-      token: loginResult.token,
-      user: loginResult.user,
-      message: data.message,
+      id: data.id.toString(),
+      username: data.username,
+      email: data.email,
+      createdAt: new Date(),
     };
   }
 
-  /**
-   * Check if token is valid
-   */
-  static isTokenValid(token: string): boolean {
+  static parseJwt(token: string): any {
     try {
-      const decoded = JSON.parse(atob(token));
-      return !!decoded.userId;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Get stored token from localStorage
-   */
-  static getStoredToken(): string | null {
-    try {
-      return localStorage.getItem('auth_token');
+      const base64Url = token.split('.')[1];
+      if (!base64Url) return null;
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      return JSON.parse(jsonPayload);
     } catch {
       return null;
     }
   }
 
-  /**
-   * Store token in localStorage
-   */
-  static storeToken(token: string): void {
-    try {
-      localStorage.setItem('auth_token', token);
-    } catch {
-      console.error('Failed to store token');
-    }
+  static isTokenValid(token: string): boolean {
+    const payload = this.parseJwt(token);
+    if (!payload || !payload.exp) return false;
+    const now = Math.floor(Date.now() / 1000);
+    return payload.exp > now;
   }
 
-  /**
-   * Clear token from localStorage
-   */
+  // Legacy methods now no-op, front-end no longer stores cookies manually.
+  static getStoredToken(): string | null {
+    return null;
+  }
+
+  static storeToken(_: string): void {
+    // no-op
+  }
+
   static clearToken(): void {
-    try {
-      localStorage.removeItem('auth_token');
-    } catch {
-      console.error('Failed to clear token');
-    }
+    // no-op
   }
 }
+

@@ -6,7 +6,7 @@ import { AuthService } from '../services/AuthService';
 interface AuthContextType extends AuthState {
   login: (username: string, password: string) => Promise<void>;
   signup: (username: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   clearSuccessMessage: () => void;
 }
 
@@ -23,24 +23,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | undefined>();
   const [successMessage, setSuccessMessage] = useState<string | undefined>();
 
-  // Initialize auth from localStorage on mount
   useEffect(() => {
-    const storedToken = AuthService.getStoredToken();
-    if (storedToken && AuthService.isTokenValid(storedToken)) {
-      setToken(storedToken);
-      // In real app, fetch user data from token or API
+    const initialize = async () => {
+      setIsLoading(true);
       try {
-        const decoded = JSON.parse(atob(storedToken));
-        setUser({
-          id: decoded.userId,
-          username: decoded.username,
-          createdAt: new Date(),
-        });
+        const refreshedToken = await AuthService.refreshAccessToken();
+        const currentUser = await AuthService.fetchCurrentUser(refreshedToken);
+        if (refreshedToken && currentUser) {
+          setToken(refreshedToken);
+          setUser(currentUser);
+        }
       } catch {
-        AuthService.clearToken();
+        setUser(null);
+        setToken(null);
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    initialize();
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -48,7 +49,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(undefined);
     try {
       const { token: newToken, user: newUser } = await AuthService.login(username, password);
-      AuthService.storeToken(newToken);
       setToken(newToken);
       setUser(newUser);
     } catch (err) {
@@ -66,12 +66,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setSuccessMessage(undefined);
     try {
       const { token: newToken, user: newUser, message } = await AuthService.signup(username, email, password);
-      AuthService.storeToken(newToken);
       setToken(newToken);
       setUser(newUser);
-      if (message) {
-        setSuccessMessage(message);
-      }
+      if (message) setSuccessMessage(message);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Đăng ký thất bại';
       setError(message);
@@ -81,12 +78,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    AuthService.clearToken();
-    setToken(null);
-    setUser(null);
-    setError(undefined);
-    setSuccessMessage(undefined);
+  const logout = async () => {
+    try {
+      await AuthService.logout();
+    } finally {
+      setToken(null);
+      setUser(null);
+      setError(undefined);
+      setSuccessMessage(undefined);
+    }
   };
 
   const clearSuccessMessage = () => {
