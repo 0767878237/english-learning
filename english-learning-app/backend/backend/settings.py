@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 from decouple import config
+import logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -89,14 +90,13 @@ DATABASES = {
     }
 }
 
-# Fallback to SQLite if PostgreSQL auth fails or env var set
-if config('DJANGO_USE_SQLITE', default=False, cast=bool):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+# DO NOT FALLBACK TO SQLITE - Force PostgreSQL connection to catch errors immediately
+logger = logging.getLogger(__name__)
+logger.warning("=" * 70)
+logger.warning(f"DATABASE ENGINE: {DATABASES['default']['ENGINE']}")
+logger.warning(f"DATABASE NAME: {DATABASES['default']['NAME']}")
+logger.warning(f"DATABASE HOST: {DATABASES['default']['HOST']}")
+logger.warning("=" * 70)
 
 
 
@@ -139,11 +139,26 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 AUTH_USER_MODEL = 'backend.User'
 
+# DRF Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+}
+
 # Cookie-based auth for BFF mode
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF Configuration - disable for localStorage/JSON-based API
+CSRF_COOKIE_SECURE = False  # Set True in production with HTTPS
+CSRF_COOKIE_HTTPONLY = False  # JavaScript needs to read CSRF token
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:8000",
+]
 
 JWT_SECRET_KEY = config('JWT_SECRET_KEY', default=SECRET_KEY)
 JWT_ALGORITHM = 'HS256'
