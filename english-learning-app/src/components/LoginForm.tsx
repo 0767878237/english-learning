@@ -1,6 +1,7 @@
 // components/LoginForm.tsx
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useNotification } from '../hooks/useNotification';
 
 interface LoginFormProps {
   onSwitchToSignup: () => void;
@@ -13,6 +14,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToSignup }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [usernameError, setUsernameError] = useState('');
   const { login } = useAuth();
+  const { addNotification } = useNotification();
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUsername(e.target.value);
@@ -44,9 +46,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToSignup }) => {
     setIsLoading(true);
     try {
       await login(username, password);
+      addNotification('success', '✓ Đăng nhập thành công!', 2000);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Đăng nhập thất bại';
       setError(message);
+      addNotification('error', `✕ ${message}`, 3000);
     } finally {
       setIsLoading(false);
     }
@@ -56,8 +60,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToSignup }) => {
     setIsLoading(true);
     try {
       await login('demo', 'Demo@123');
+      addNotification('success', '✓ Demo đăng nhập thành công!', 2000);
     } catch (err) {
-      setError('Demo login failed');
+      const message = err instanceof Error ? err.message : 'Demo login failed';
+      addNotification('error', `✕ ${message}`, 3000);
     } finally {
       setIsLoading(false);
     }

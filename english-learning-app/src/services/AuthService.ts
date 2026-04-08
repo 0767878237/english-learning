@@ -1,7 +1,7 @@
 // AuthService.ts
 import type { User, PasswordValidationResult } from '../types';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000/api';
 
 export class AuthService {
   /**
@@ -93,9 +93,9 @@ export class AuthService {
   }
 
   /**
-   * Signup - create account and receive tokens from backend
+   * Signup - create account without auto-login (user must login manually)
    */
-  static async signup(username: string, email: string, password: string): Promise<{ token: string; user: User; message?: string }> {
+  static async signup(username: string, email: string, password: string): Promise<{ message?: string }> {
     const usernameValidation = this.validateUsername(username);
     if (!usernameValidation.isValid) {
       throw new Error(usernameValidation.error);
@@ -127,14 +127,7 @@ export class AuthService {
     }
 
     const data = await response.json();
-    const user: User = {
-      id: data.user.id.toString(),
-      username: data.user.username,
-      email: data.user.email,
-      createdAt: new Date(),
-    };
-
-    return { token: data.access_token, user, message: data.message };
+    return { message: data.message };
   }
 
   static async refreshAccessToken(): Promise<string> {

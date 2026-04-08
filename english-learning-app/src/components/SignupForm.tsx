@@ -1,6 +1,7 @@
 // components/SignupForm.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useNotification } from '../hooks/useNotification';
 import { AuthService } from '../services/AuthService';
 import type { PasswordValidationResult } from '../types';
 
@@ -25,13 +26,12 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
     isValid: false,
     errors: [],
   });
-  const { signup, successMessage, clearSuccessMessage } = useAuth();
+  const { signup } = useAuth();
+  const { addNotification } = useNotification();
 
   useEffect(() => {
-    return () => {
-      clearSuccessMessage();
-    };
-  }, [clearSuccessMessage]);
+    return () => {};
+  }, []);
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUsername(e.target.value);
@@ -150,12 +150,24 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
     setIsLoading(true);
     try {
       await signup(username, email, password);
+      addNotification('success', '✓ Đăng ký thành công! Vui lòng đăng nhập để bắt đầu.', 3000);
+      // Clear form
+      setUsername('');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setErrors({});
+      // Auto-switch to login after 2 seconds
+      setTimeout(() => {
+        onSwitchToLogin();
+      }, 2000);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Đăng ký thất bại';
       setErrors(prev => ({
         ...prev,
         submit: message,
       }));
+      addNotification('error', `✕ ${message}`, 3000);
     } finally {
       setIsLoading(false);
     }
@@ -169,13 +181,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
     confirmPassword === password;
 
   return (
-    <>
-      {successMessage && (
-        <div className="signup-success-message">
-          {successMessage}
-        </div>
-      )}
-      <form className="auth-form" onSubmit={handleSubmit}>
+    <form className="auth-form" onSubmit={handleSubmit}>
       <div className="form-group">
         <label htmlFor="signup-username" className="form-label">
           Tên người dùng
@@ -302,7 +308,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
         </p>
       </div>
     </form>
-    </>
   );
 };
 

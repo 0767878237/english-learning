@@ -65,9 +65,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(undefined);
     setSuccessMessage(undefined);
     try {
-      const { token: newToken, user: newUser, message } = await AuthService.signup(username, email, password);
-      setToken(newToken);
-      setUser(newUser);
+      const { message } = await AuthService.signup(username, email, password);
+      // NOTE: Do NOT automatically log in after signup
+      // User must login manually with created credentials
       if (message) setSuccessMessage(message);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Đăng ký thất bại';
